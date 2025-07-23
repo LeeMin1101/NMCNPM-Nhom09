@@ -34,35 +34,8 @@ không thư viện ngoài, cấu trúc một lớp, dữ liệu thô dạng 
 
 ---
 
-## 3. Cách hoạt động (luồng chính)
 
-```mermaid
-flowchart TD
-    A[Start] --> B[Khởi tạo PersonalTaskManager]
-    B --> C{Có file tasks.txt?}
-    C -- Có --> D[Tải từng dòng vào List<Task>]
-    C -- Không --> E[Tạo List rỗng]
-    D --> F[Tính nextId = max(id)+1]
-    E --> F
-    F --> G[addTask(...)]:::blue
-    G --> H{Tiêu đề & ưu tiên hợp lệ?}
-    H -- Không --> I[Ném IllegalArgumentException]
-    H -- Có --> J{Có task trùng?}
-    J -- Có --> I
-    J -- Không --> K[Tạo Task mới, nextId++]
-    K --> L[Lưu List xuống file]
-    L --> M[Hiển thị Task mới & tiếp tục]
-    classDef blue fill:#caf,stroke:#336;
-```
-
-* **loadTasks()** Đọc tệp; dòng nhập lỗi bị bỏ qua → khởi tạo nhanh.  
-* **addTask(…)** Gọi chuỗi kiểm tra hợp lệ → tạo `Task` → ghi đè file bằng toàn bộ danh sách.  
-* **showAllTasks()** In từng task theo định dạng:  
-  `ID:x | <Tiêu đề> | <yyyy-MM-dd> | <Ưu tiên>`  
-
----
-
-## 4. Hướng dẫn biên dịch & chạy
+## 3. Hướng dẫn biên dịch & chạy
 
 ```bash
 # 1. Lưu mã vào PersonalTaskManager.java
@@ -77,7 +50,7 @@ java PersonalTaskManager
 
 ---
 
-## 5. Định dạng dữ liệu trong `tasks.txt`
+## 4. Định dạng dữ liệu trong `tasks.txt`
 
 ```
 <id>|<title>|<description>|<yyyy-MM-dd>|<priority>|<status>
@@ -91,7 +64,7 @@ Ví dụ:
 
 ---
 
-## 6. Mở rộng gợi ý
+## 5. Mở rộng gợi ý
 
 | Ý tưởng | Ghi chú |
 |---------|---------|
@@ -102,7 +75,7 @@ Ví dụ:
 
 ---
 
-## 7. Giấy phép
+## 6. Giấy phép
 Mã nguồn phát hành theo **MIT License** – thoải mái sửa, chia sẻ, trích dẫn.
 
 ---
