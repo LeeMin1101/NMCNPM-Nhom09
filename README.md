@@ -106,6 +106,3 @@ Ví dụ:
 Mã nguồn phát hành theo **MIT License** – thoải mái sửa, chia sẻ, trích dẫn.
 
 ---
-
-> 🎉 **Chúc bạn học vui & refactor thỏa thích!**  
-> Report issue hoặc gửi pull request khi cần.
