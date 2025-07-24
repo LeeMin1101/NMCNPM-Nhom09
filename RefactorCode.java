@@ -1,120 +1,120 @@
-import java.io.*;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.time.format.DateTimeParseException;
+import java.util.UUID;
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
 
-public class PersonalTaskManager {
-    private static final String DB_FILE = "tasks.txt";
-    private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-    private static final Set<String> PRIORITIES = Set.of("Thap", "Trung binh", "Cao");
-    
-    private List<Task> tasks = new ArrayList<>();
-    private int nextId = 1;
+public class PersonalTaskManagerCleaned {
 
-    static class Task {
-        int id;
-        String title, description, priority, status;
-        LocalDate dueDate;
-        LocalDateTime created;
+    private static final String DB_FILE_PATH = "tasks_database.json";
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
-        Task(int id, String title, String desc, LocalDate due, String priority) {
-            this.id = id;
-            this.title = title;
-            this.description = desc;
-            this.dueDate = due;
-            this.priority = priority;
-            this.status = "Chua hoan thanh";
-            this.created = LocalDateTime.now();
-        }
-
-        Task(String line) {
-            String[] parts = line.split("\\|");
-            this.id = Integer.parseInt(parts[0]);
-            this.title = parts[1];
-            this.description = parts[2];
-            this.dueDate = LocalDate.parse(parts[3]);
-            this.priority = parts[4];
-            this.status = parts[5];
-        }
-
-        String toLine() {
-            return id + "|" + title + "|" + description + "|" + dueDate + "|" + priority + "|" + status;
-        }
-
-        @Override
-        public String toString() {
-            return String.format("ID:%d | %s | %s | %s", id, title, dueDate, priority);
+    private JSONArray loadTasksFromDb() {
+        try (FileReader reader = new FileReader(DB_FILE_PATH)) {
+            JSONParser parser = new JSONParser();
+            Object obj = parser.parse(reader);
+            return (JSONArray) obj;
+        } catch (IOException | ParseException e) {
+            System.err.println("Lỗi đọc database: " + e.getMessage());
+            return new JSONArray();
         }
     }
 
-    public PersonalTaskManager() {
-        loadTasks();
-        nextId = tasks.stream().mapToInt(t -> t.id).max().orElse(0) + 1;
-    }
-
-    private void loadTasks() {
-        try (BufferedReader reader = new BufferedReader(new FileReader(DB_FILE))) {
-            reader.lines().forEach(line -> {
-                try { tasks.add(new Task(line)); } 
-                catch (Exception ignored) {}
-            });
-        } catch (IOException ignored) {}
-    }
-
-    private void saveTasks() {
-        try (PrintWriter writer = new PrintWriter(DB_FILE)) {
-            tasks.forEach(task -> writer.println(task.toLine()));
+    private void saveTasksToDb(JSONArray tasksData) {
+        try (FileWriter writer = new FileWriter(DB_FILE_PATH)) {
+            writer.write(tasksData.toJSONString());
+            writer.flush();
         } catch (IOException e) {
-            throw new RuntimeException("Loi luu file: " + e.getMessage());
+            System.err.println("Lỗi ghi file database: " + e.getMessage());
         }
     }
 
-    public Task addTask(String title, String description, String dateStr, String priority) {
-        if (title == null || title.trim().isEmpty()) 
-            throw new IllegalArgumentException("Tieu de khong duoc trong");
-        if (!PRIORITIES.contains(priority)) 
-            throw new IllegalArgumentException("Priority khong hop le");
-        
-        LocalDate dueDate = LocalDate.parse(dateStr, DATE_FORMAT);
-        
-        if (tasks.stream().anyMatch(t -> t.title.equalsIgnoreCase(title) && t.dueDate.equals(dueDate)))
-            throw new IllegalArgumentException("Task da ton tai");
+    private boolean isValidPriority(String priority) {
+        return priority.equals("Thấp") || priority.equals("Trung bình") || priority.equals("Cao");
+    }
 
-        Task newTask = new Task(nextId++, title, description, dueDate, priority);
+    private boolean isDuplicateTask(JSONArray tasks, String title, String dueDateStr) {
+        for (Object obj : tasks) {
+            JSONObject task = (JSONObject) obj;
+            if (task.get("title").toString().equalsIgnoreCase(title)
+                    && task.get("due_date").toString().equals(dueDateStr)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public JSONObject addNewTask(String title, String description,
+                                 String dueDateStr, String priorityLevel, boolean isRecurring) {
+
+        if (title == null || title.trim().isEmpty()) {
+            System.out.println("❌ Tiêu đề không được để trống.");
+            return null;
+        }
+
+        if (dueDateStr == null || dueDateStr.trim().isEmpty()) {
+            System.out.println("❌ Ngày đến hạn không được để trống.");
+            return null;
+        }
+
+        LocalDate dueDate;
+        try {
+            dueDate = LocalDate.parse(dueDateStr, DATE_FORMATTER);
+        } catch (DateTimeParseException e) {
+            System.out.println("❌ Ngày đến hạn sai định dạng. Đúng: YYYY-MM-DD.");
+            return null;
+        }
+
+        if (!isValidPriority(priorityLevel)) {
+            System.out.println("❌ Mức độ ưu tiên không hợp lệ. Chỉ chấp nhận: Thấp, Trung bình, Cao.");
+            return null;
+        }
+
+        JSONArray tasks = loadTasksFromDb();
+
+        if (isDuplicateTask(tasks, title, dueDateStr)) {
+            System.out.printf("❌ Nhiệm vụ '%s' đã tồn tại với cùng ngày đến hạn.\n", title);
+            return null;
+        }
+
+        JSONObject newTask = new JSONObject();
+        String taskId = UUID.randomUUID().toString();
+        String now = LocalDateTime.now().format(DateTimeFormatter.ISO_DATE_TIME);
+
+        newTask.put("id", taskId);
+        newTask.put("title", title);
+        newTask.put("description", description);
+        newTask.put("due_date", dueDate.format(DATE_FORMATTER));
+        newTask.put("priority", priorityLevel);
+        newTask.put("status", "Chưa hoàn thành");
+        newTask.put("created_at", now);
+        newTask.put("last_updated_at", now);
+
+        if (isRecurring) {
+            newTask.put("is_recurring", true);
+            newTask.put("recurrence_pattern", "Chưa xác định"); // Có thể mở rộng sau
+        }
+
         tasks.add(newTask);
-        saveTasks();
-        
-        System.out.println("Da them: " + newTask);
+        saveTasksToDb(tasks);
+
+        System.out.printf("✅ Đã thêm nhiệm vụ thành công. ID: %s\n", taskId);
         return newTask;
     }
 
-    public void showAllTasks() {
-        if (tasks.isEmpty()) {
-            System.out.println("Khong co task nao");
-            return;
-        }
-        System.out.println("\nDANH SACH TASKS:");
-        tasks.forEach(System.out::println);
-    }
-
     public static void main(String[] args) {
-        PersonalTaskManager manager = new PersonalTaskManager();
-        
-        try {
-            manager.addTask("Lap ke hoach cho Do an mon hoc", "Phan chia cong viec 3 tuan", "2025-07-24", "Cao");
-            manager.addTask("Thu thap yeu cau ung dung Quan ly Nhiem vu Ca nhan", "Viet User Story va Product Backlog", "2025-07-25", "Cao");
-            manager.addTask("Thiet ke", "Ve Context Diagram cho he thong", "2025-07-26", "Trung binh");
-            manager.addTask("Code theo chuan", "Refactor code theo nguyen tac KISS/SOLID", "2025-07-27", "Cao");
-            manager.addTask("Test", "Viet Function Test Case cho ung dung", "2025-07-28", "Trung binh");
-            manager.addTask("Van dung Cong cu quan ly du an", "Su dung tool de theo doi tien do", "2025-07-29", "Thap");
-            
-            manager.showAllTasks();
-            
-            // Test trung lap
-            manager.addTask("Lap ke hoach cho Do an mon hoc", "Mo ta khac", "2025-07-24", "Thap");
-        } catch (Exception e) {
-            System.err.println("Loi: " + e.getMessage());
-        }
+        PersonalTaskManagerCleaned manager = new PersonalTaskManagerCleaned();
+
+        manager.addNewTask("Mua sách", "Sách Công nghệ phần mềm.", "2025-07-20", "Cao", false);
+        manager.addNewTask("Mua sách", "Trùng tiêu đề và ngày.", "2025-07-20", "Cao", false);
+        manager.addNewTask("Tập thể dục", "Tập gym 1 tiếng.", "2025-07-21", "Trung bình", true);
+        manager.addNewTask("", "Không có tiêu đề.", "2025-07-22", "Thấp", false);
     }
 }
